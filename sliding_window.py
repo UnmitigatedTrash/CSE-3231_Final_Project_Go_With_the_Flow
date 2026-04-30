@@ -16,6 +16,8 @@ class ACK:
 class SenderNode:
     def __init__(self, sws):
         self.sws = sws  # Sender window size
+        self.cwnd = sws # Congestion window size TODO implement this
+        self.rwnd = -1 # Receiver window size that was advertised TODO implement this
         self.lar = -1   # Last ack received
         self.lfs = -1   # Last frame sent
         self.frames = []    # List of unacknowledged frames in transit
@@ -107,8 +109,8 @@ def is_corrupted(error):
 # Simulate sliding window
 def do_simulation(duration, error, timeout, sender, receiver):
     # Track frame and ACK in transit
-    frame_in_transit = None
-    ack_in_transit = None
+    frame_in_transit : Frame = None
+    ack_in_transit : ACK = None
     
     # Simulate sliding window by iterating timestamp
     for timestamp in range(duration):
