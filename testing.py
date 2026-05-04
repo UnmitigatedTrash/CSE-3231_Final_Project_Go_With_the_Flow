@@ -18,8 +18,8 @@ class ACK:
 class SenderNode:
     def __init__(self, sws):
         self.sws = sws  # Sender window size
-        self.cwnd = 1
-        self.rwnd = -1 # Receiver window size that was advertised TODO implement this 
+        self.cwnd = 1   # Congestion window size
+        self.rwnd = -1 # Receiver window size that was advertised
         self.lar = -1   # Last ack received
         self.lfs = -1   # Last frame sent
         self.frames = []    # List of unacknowledged frames in transit
@@ -50,8 +50,10 @@ class SenderNode:
         for frame in self.frames:
             # If a frame has been unacknowledged for longer than timeout
             if frame.unack and timestamp - frame.time_sent >= timeout:
-                self.ssthresh = max(self.cwnd // 2, 1)
-                self.cwnd = 1
+                self.ssthresh = max(self.cwnd / 2, 1)   # Set the threshold
+
+                self.cwnd = 1   # Set the window size
+                
                 frame.time_sent = timestamp # Update time sent to the current timestamp
 
                 return frame    # Return frame so it can be retransmitted
@@ -279,7 +281,7 @@ def plot_results(history, params):
     axes[2].grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig('tcp_simulation.png', dpi=100, bbox_inches='tight')
+    plt.savefig('tcp_simulation.png', dpi = 100, bbox_inches='tight')
     plt.show()
 
 # Create initial simulation variables
