@@ -244,8 +244,8 @@ def create_nodes(sws, rws):
 
 # Print header information
 def print_header(duration, sws, rws, error, timeout):
-    print("Student Name: Jacob Lebkuecher")
-    print("Student ID: 904026388")
+    print("Group: Go With the Flow")
+    print("Student Names: Ethan Van Brunt (ID: 904031060), Ryan Giacoboni (ID: 904003021), Jacob Lebkuecher (ID: 904026388)")
     print(f"Parameters: duration={duration} sws={sws} rws={rws} error={error} timeout={timeout}\n")
 
 def plot_results(history, params):
