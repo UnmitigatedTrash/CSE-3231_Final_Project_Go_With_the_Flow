@@ -31,7 +31,7 @@ class SenderNode:
     # Send a frame
     def send_frame(self, timestamp):
         # Check if a new frame can be sent (the window is not full)
-        effective_window = min(self.cwnd, self.rwnd if self.rwnd > 0 else self.cwnd, self.sws)
+        effective_window = min(self.cwnd, self.rwnd if self.rwnd != -1 else self.sws, self.sws)
         if (self.lfs - self.lar) >= effective_window:
             return None
 
@@ -52,7 +52,7 @@ class SenderNode:
         for frame in self.frames:
             # If a frame has been unacknowledged for longer than timeout
             if frame.unack and timestamp - frame.time_sent >= timeout:
-                self.on_packet_loss()
+                self.on_timeout()
 
                 frame.time_sent = timestamp # Update time sent to the current timestamp
 
@@ -86,7 +86,7 @@ class SenderNode:
 
             # If the duplicate ACK count is 3, detect packet loss
             if self.dup_ack_count == 3:
-                self.on_packet_loss()
+                self.on_duplicate_ack()
 
                 missing_frame = self.last_ack + 1   # Retransmit the frame after last ACK
 
@@ -117,12 +117,19 @@ class SenderNode:
                 self.cwnd += 1 / self.cwnd
 
             return None # No frame needs to be retransmitted on new ACK
+        
+    def on_timeout(self):
+        # Only half the threshold if the cwnd hasn't been set to 1 yet
+        if self.cwnd > 1:
+            self.ssthresh = max(self.cwnd // 2, 2)
+        self.cwnd = 1
+        self.state = "slow_start"
 
-    # What happens on packet loss
-    def on_packet_loss(self):
-        self.ssthresh = max(self.cwnd / 2, 2)   # Set the threshold
-        self.cwnd = self.ssthresh   # Set the congestion window size to the current threshold
-        self.state = "avoidance"    # Set congestion window state to 'avoidance'
+    # Logic for duplicate ACKs. Cuts the window size in half and moves to the avoidance state
+    def on_duplicate_ack(self):
+        self.ssthresh = max(self.cwnd / 2, 2)
+        self.cwnd = self.ssthresh
+        self.state = "avoidance"
 
 # Defines a reciever node
 class ReceiverNode:
