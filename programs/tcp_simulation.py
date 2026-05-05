@@ -23,10 +23,10 @@ class SenderNode:
         self.lar = -1   # Last ack received
         self.lfs = -1   # Last frame sent
         self.frames = []    # List of unacknowledged frames in transit
-        self.ssthresh = 16
+        self.ssthresh = 16  # Connection threshold
         self.state = "slow_start" # Congestion window state
-        self.dup_ack_count = 0
-        self.last_ack = -1
+        self.dup_ack_count = 0  # Track duplicate ACK count
+        self.last_ack = -1  # Track the last ACK
 
     # Send a frame
     def send_frame(self, timestamp):
