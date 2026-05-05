@@ -102,7 +102,7 @@ class SenderNode:
 
             # Congestion state 'slow_start', congestion window grows exponentially
             if self.state == "slow_start":
-                self.cwnd += 1  # Increment congestion window size by 1, doubling every RTT
+                self.cwnd *= 2  # Increment congestion window size by 1, doubling every RTT
 
                 # If threshold is reached, transition to congestion state 'avoidance'
                 if self.cwnd >= self.ssthresh:
