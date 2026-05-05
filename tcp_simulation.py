@@ -10,7 +10,7 @@ class Frame:
     
 # Defines an ACK
 class ACK:
-    def __init__(self, ack_num,  rwnd=0):
+    def __init__(self, ack_num, rwnd = 0):
         self.ack_num = ack_num  # Seq num of frame being acknowledged
         self.rwnd = rwnd
 
@@ -24,7 +24,9 @@ class SenderNode:
         self.lfs = -1   # Last frame sent
         self.frames = []    # List of unacknowledged frames in transit
         self.ssthresh = 16
+        self.state = "slow_start" # Congestion window state
         self.dup_ack_count = 0
+        self.last_ack = -1
 
     # Send a frame
     def send_frame(self, timestamp):
@@ -50,10 +52,8 @@ class SenderNode:
         for frame in self.frames:
             # If a frame has been unacknowledged for longer than timeout
             if frame.unack and timestamp - frame.time_sent >= timeout:
-                self.ssthresh = max(self.cwnd / 2, 1)   # Set the threshold
+                self.on_packet_loss()
 
-                self.cwnd = 1   # Set the window size
-                
                 frame.time_sent = timestamp # Update time sent to the current timestamp
 
                 return frame    # Return frame so it can be retransmitted
@@ -61,11 +61,10 @@ class SenderNode:
         return None # No frame needs to be retransmitted
 
     # Process incoming ACK
-    def process_ack(self, ack: ACK):
+    def process_ack(self, ack: ACK, timestamp):
         # If ACK is corrupted, send error ACK
         if ack.ack_num == '?':
             return ACK('?')
-        old_lar = self.lar
 
         # Iterate through unacknowledged frames
         for frame in self.frames:
@@ -78,13 +77,52 @@ class SenderNode:
 
         # Update last acknowledged frame
         self.lar = max(self.lar, ack.ack_num)
+
         self.rwnd = ack.rwnd
 
-        if ack.ack_num > old_lar:
-            if self.cwnd < self.ssthresh:
-                self.cwnd += 1
-            else:
+        # If the ACK is a duplicate
+        if ack.ack_num == self.last_ack:
+            self.dup_ack_count += 1     # Increment duplicate ACK count
+
+            # If the duplicate ACK count is 3, detect packet loss
+            if self.dup_ack_count == 3:
+                self.on_packet_loss()
+
+                missing_frame = self.last_ack + 1   # Retransmit the frame after last ACK
+
+                # Iterate through unacknowledged frames
+                for frame in self.frames:
+                    # If frame is the missing frame, retransmit the frame
+                    if frame.seq_num == missing_frame:
+                        frame.time_sent = timestamp     # Update time sent to the current timestamp
+
+                        return frame    # Return frame so it can be retransmitted
+                    
+            return None # No frame needs to be retransmitted
+
+        # If the ACK is new
+        else:
+            self.dup_ack_count = 0      # Set duplicate ACK count to 0
+            self.last_ack = ack.ack_num     # Update last ACK received
+
+            # Congestion state 'slow_start', congestion window grows exponentially
+            if self.state == "slow_start":
+                self.cwnd += 1  # Increment congestion window size by 1, doubling every RTT
+
+                # If threshold is reached, transition to congestion state 'avoidance'
+                if self.cwnd >= self.ssthresh:
+                    self.state = "avoidance"
+            # Congestion state 'avoidance', congestion window grows linearly
+            elif self.state == "avoidance":
                 self.cwnd += 1 / self.cwnd
+
+            return None # No frame needs to be retransmitted on new ACK
+
+    # What happens on packet loss
+    def on_packet_loss(self):
+        self.ssthresh = max(self.cwnd / 2, 2)   # Set the threshold
+        self.cwnd = self.ssthresh   # Set the congestion window size to the current threshold
+        self.state = "avoidance"    # Set congestion window state to 'avoidance'
 
 # Defines a reciever node
 class ReceiverNode:
@@ -96,15 +134,15 @@ class ReceiverNode:
 
     # Receive a frame
     def receive_frame(self, frame: Frame):
-    # Frame is older than what we've already received — send duplicate ACK
+        # Frame is older than what we've already received — send duplicate ACK
         if frame.seq_num <= self.lfr:
             return ACK(self.lfr, self.available_window())
     
-    # Frame is beyond our window — drop it silently
+        # Frame is beyond our window — drop it silently
         if frame.seq_num > self.laf:
             return None
     
-    # Frame is in the acceptable range
+        # Frame is in the acceptable range
         self.buffer.add(frame.seq_num)
     
         while (self.lfr + 1) in self.buffer:
@@ -153,7 +191,7 @@ def do_simulation(duration, error, timeout, sender, receiver):
             if ack_in_transit.ack_num == '?':
                 last_ack_error = True   # Set ack error flag to True
 
-            sender.process_ack(ack_in_transit)  # Sender processes ACK
+            sender.process_ack(ack_in_transit, timestamp)  # Sender processes ACK
 
             ack_in_transit = None   # Clear ACK in transit after processing
 
