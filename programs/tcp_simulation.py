@@ -95,11 +95,6 @@ class SenderNode:
                     # If frame is the missing frame, retransmit the frame
                     if frame.seq_num == missing_frame:
                         frame.time_sent = timestamp     # Update time sent to the current timestamp
-
-                        return frame    # Return frame so it can be retransmitted
-                    
-            return None # No frame needs to be retransmitted
-
         # If the ACK is new
         else:
             self.dup_ack_count = 0      # Set duplicate ACK count to 0
@@ -115,8 +110,6 @@ class SenderNode:
             # Congestion state 'avoidance', congestion window grows linearly
             elif self.state == "avoidance":
                 self.cwnd += 1 / self.cwnd
-
-            return None # No frame needs to be retransmitted on new ACK
         
     def on_timeout(self):
         # Only half the threshold if the cwnd hasn't been set to 1 yet
